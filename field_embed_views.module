@@ -1,0 +1,398 @@
+<?php
+
+/**
+ * @file
+ * Defines a field type to display a view.
+ */
+
+/**
+ * Implements hook_theme().
+ */
+function field_embed_views_theme() {
+  return array(
+    'field_embed_views_default' => array(
+      'render element' => 'element',
+    ),
+    'field_embed_views_formatter_default' => array(
+      'render element' => 'element',
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_info().
+ */
+function field_embed_views_field_info() {
+  return array(
+    'field_embed_views' => array(
+      'label' => t('Views'),
+      'description' => t('Displays a selected view in a node.'),
+      'instance_settings' => array(
+        'view_name' => '',
+        'display_name' => '',
+      ),
+      'default_widget' => 'field_embed_views',
+      'default_formatter' => 'field_embed_views_default',
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_instance_settings_form().
+ *
+ */
+function field_embed_views_field_instance_settings_form($field, $instance) {
+  $form['#field_name'] = $field['field_name'];
+
+  $default_view_name = isset($instance['settings']['view_name']) ? $instance['settings']['view_name'] : NULL;
+  $form['view_name'] = array(
+    '#type' => 'select',
+    '#title' => 'View',
+    '#options' => _field_embed_views_get_views($field, $instance),
+    '#empty_value' => '',
+    '#default_value' => $default_view_name,
+    '#required' => TRUE,
+    '#ajax' => array(
+      'event' => 'change',
+      'callback' => 'field_embed_views_display_option_ajax',
+      'wrapper' => 'display-wrapper',
+    ),
+  );
+
+  $form['display_name'] = array(
+    '#type' => 'select',
+    '#title' => 'Display',
+    '#options' => array(),
+    '#empty_value' => '',
+    '#default_value' => isset($instance['settings']['display_name']) ? $instance['settings']['display_name'] : NULL,
+    '#required' => TRUE,
+    '#prefix' => '<div id="display-wrapper">',
+    '#suffix' => '</div>',
+
+  );
+
+  return $form;
+}
+
+/**
+ * Ajax function to correct display list.
+ */
+function field_embed_views_display_option_ajax($form, $form_state) {
+  $field = & $form['instance']['settings']['display_name'];
+  $commands = array();
+  $commands[] = ajax_command_replace('#display-wrapper', drupal_render($field));
+  return array('#type' => 'ajax', '#commands' => $commands);
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function field_embed_views_form_alter(&$form, &$form_state, $form_id) {
+
+  if ($form_id == 'field_ui_field_edit_form') {
+    $view_name = isset($form_state['input']['instance']['settings']['view_name']) ? $form_state['input']['instance']['settings']['view_name'] : $form['instance']['settings']['view_name']['#default_value'];
+    $form['instance']['settings']['display_name']['#options'] = _field_embed_views_get_views_displays($view_name);
+  }
+}
+
+/**
+ * Implements hook_field_presave().
+ */
+function field_embed_views_field_presave($entity_type, $entity, $field, $instance, $langcode, &$items) {
+  foreach ($items as $delta => $item) {
+    if (isset($item['settings'])) {
+      $items[$delta]['settings'] = @serialize($item['settings']);
+    }
+  }
+}
+
+/**
+ * Implements hook_field_load().
+ */
+function field_embed_views_field_load($entity_type, $entities, $field, $instances, $langcode, &$items) {
+//TODO
+  foreach ($items as $key => $data) {
+    foreach ($data as $delta => $item) {
+      if (isset($items[$key][$delta]['settings'])) {
+        $items[$key][$delta]['settings'] = @unserialize($items[$key][$delta]['settings']);
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_field_is_empty().
+ */
+function field_embed_views_field_is_empty($item, $field) {
+  //TODO
+  return FALSE; //empty($item['settings'])
+}
+
+/**
+ * Implements hook_field_formatter_info().
+ */
+function field_embed_views_field_formatter_info() {
+  return array(
+    'field_embed_views_default' => array(
+      'label' => t('Default'),
+      'field types' => array('field_embed_views')
+    ),
+  );
+}
+
+/**
+ * Formats a field_embed_views.
+ */
+function theme_field_embed_views_formatter_default($variables) {
+
+  $element = $variables['element'];
+  $exposed_filters = $element['#settings'];
+  $view = $element['#view'];
+  $view->set_exposed_input($exposed_filters);
+
+//TODO: move settings for disable in formatter settings form
+  if (isset($view->display_handler->display->handler->options['filters']) && !empty($view->display_handler->display->handler->options['filters'])) {
+    foreach ($view->display_handler->display->handler->options['filters'] as &$filter) {
+//      $filter['exposed'] = true;
+    }
+  }
+
+//disable all exposed filters
+  $view->display_handler->set_option('exposed_block', TRUE);
+
+  return $view->preview();
+}
+
+/**
+ * Implements hook_field_formatter_view().
+ */
+function field_embed_views_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+
+  $instance_settings = $instance['settings'];
+
+  list($entity_id) = entity_extract_ids($entity_type, $entity);
+  $elements = array();
+  switch ($display['type']) {
+    case 'field_embed_views_default':
+      foreach ($items as $delta => $item) {
+
+        $view = views_get_view($instance_settings['view_name']);
+        $elements[$delta] = array(
+          '#type' => 'field_embed_views',
+          '#theme' => 'field_embed_views_formatter_default',
+          '#access' => $view && $view->access($instance_settings['display_name']),
+          '#view' => $view,
+          '#view_name' => $instance_settings['view_name'],
+          '#view_display' => $instance_settings['display_name'],
+          '#settings' => $item['settings'],
+          '#entity_type' => $entity_type,
+          '#entity_id' => $entity_id,
+          '#entity' => $entity,
+          '#element'
+        );
+      }
+      break;
+  }
+  return $elements;
+}
+
+/**
+ * Implements hook_element_info().
+ */
+function field_embed_views_element_info() {
+  $elements = array();
+  $elements['field_embed_views'] = array(
+    '#input' => TRUE,
+    '#theme' => 'field_embed_views_default',
+    '#process' => array('_field_embed_views_process'),
+    '#theme_wrappers' => array('form_element'),
+  );
+  return $elements;
+}
+
+/**
+ * Processes the field_embed_views type element before displaying the field.
+ *
+ * Build the form element. When creating a form using FAPI #process,
+ * note that $element['#value'] is already set.
+ *
+ */
+function _field_embed_views_process($element, $form_state, $complete_form) {
+
+  $default_values = isset($element['#value']['settings']) ? $element['#value']['settings'] : NULL;
+  $instance = field_widget_instance($element, $form_state);
+  $view_name = $instance['settings']['view_name'];
+  $display_name = $instance['settings']['display_name'];
+
+  if ($view = views_get_view($view_name)) {
+    $view->set_display($display_name);
+    if ($view->access($display_name)) {
+      $view->init_handlers();
+
+      $filter_form_state = array(
+        'view' => &$view,
+        'display' => &$view->display[$display_name],
+        'method' => 'post',
+        'rerender' => FALSE,
+        'no_redirect' => FALSE,
+        'always_process' => FALSE,
+      );
+
+      $filter_form_state['exposed_form_plugin'] = $view->display_handler->get_plugin('exposed_form');
+      $filter_form = drupal_build_form('views_exposed_form', $filter_form_state);
+
+      //Clear $filter_form
+      _field_embed_views_clear_exposed_form_elements($filter_form);
+
+      $element['settings'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Exposed Filters'),
+        '#collapsible' => FALSE,
+        '#tree' => TRUE,
+      );
+
+      foreach ($filter_form as $element_id => $element_) {
+        $element['settings'][$element_id] = $element_;
+        //Set default value
+        if (isset($default_values[$element_id])) {
+          $element['settings'][$element_id]['#value'] = $default_values[$element_id];
+        }
+      }
+      return $element;
+    }
+  }
+}
+
+/**
+ * Return HTML of the field.
+ *
+ */
+function theme_field_embed_views_default($variables) {
+  $element = $variables['element'];
+  return drupal_render($element['settings']);
+}
+
+/**
+ * Implements hook_field_widget_info().
+ */
+function field_embed_views_field_widget_info() {
+  return array(
+    'field_embed_views' => array(
+      'label' => 'Views Exposed Filters',
+      'field types' => array('field_embed_views'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_field_widget_form().
+ */
+function field_embed_views_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
+
+  $element += array(
+    '#type' => $instance['widget']['type'],
+    '#default_value' => isset($items[$delta]) ? $items[$delta] : '',
+  );
+  return $element;
+}
+
+/**
+ * Returns a select options list of views displays of enabled and allowed views.
+ */
+function _field_embed_views_get_views($field, $instance) {
+  // Retrieve all currently available views.
+  $views = views_get_enabled_views();
+  $options = array();
+  if (is_array($views) && !empty($views)) {
+    foreach ($views as $view) {
+      $options[$view->name] = $view->human_name;
+    }
+  }
+  return $options;
+}
+
+/**
+ * Returns a select options list of views displays of enabled and allowed views.
+ */
+function _field_embed_views_get_views_displays($view_name) {
+
+  if (!$view_name) {
+    return array();
+  }
+
+  // Retrieve all currently available views.
+  $view = views_get_view($view_name);
+  $options = array();
+  if (is_array($view->display) && !empty($view->display)) {
+    foreach ($view->display as $display) {
+      $options[$display->id] = $display->display_title;
+    }
+  }
+  return $options;
+}
+
+/**
+ * Returns clear $form without view attributes
+ */
+function _field_embed_views_clear_exposed_form_elements(&$form) {
+//TODO: Will be refactored
+  $exposed_form_elements = array(
+    '#theme_wrappers',
+    '#tree',
+    '#parents',
+    '#validate',
+    '#submit',
+    '#after_build',
+    '#processed',
+    '#defaults_loaded',
+    '#required',
+    '#attributes',
+    '#title_display',
+    '#array_parents',
+    '#sorted',
+    '#after_build_done',
+    '#validated',
+    '#id',
+    '#form_id',
+    '#type',
+    '#method',
+    '#build_id',
+    '#token',
+    'form_token',
+    'form_id',
+    'form_build_id',
+    'submit',
+    'reset',
+  );
+
+  foreach ($exposed_form_elements as $element) {
+    if (isset($form[$element])) {
+      unset($form[$element]);
+    }
+  }
+
+  $exposed_form_element_attr = array(
+    '#process',
+    '#processed',
+    '#pre_render',
+    '#defaults_loaded',
+    '#ajax_processed',
+    '#sorted',
+    '#theme',
+    '#theme_wrappers',
+    '#tree',
+    '#parents',
+    '#name',
+    '#id',
+  );
+
+  foreach ($form as $element_id => $element) {
+    if (is_array($element) && !empty($element)) {
+      foreach ($element as $key => $attribute) {
+        if (isset($form[$element_id][$key]) && in_array($key, $exposed_form_element_attr)) {
+          unset($form[$element_id][$key]);
+        }
+      }
+    }
+  }
+}
