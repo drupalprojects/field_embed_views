@@ -6,6 +6,19 @@
  */
 
 /**
+ * includes area
+ */
+//include_once 'tve_views_options.functions.inc';
+//include_once 'inc / tve_views_options.functions.inc';
+
+module_load_include('inc', 'field_embed_views', 'inc/field_embed_views.functions'); // field embeded views functions
+module_load_include('inc', 'field_embed_views', 'inc/field_embed_views.formatter'); // field embeded views formatter
+module_load_include('inc', 'field_embed_views', 'inc/field_embed_views.widget'); // field embeded views widget
+
+
+DEFINE('FIELD_EMBEDED_VIEWS_DEFAULT_MAX_ASSET_ITEM', 9);
+DEFINE('FIELD_EMBEDED_VIEWS_DEFAULT_PAGE_TYPE', 'some');
+/**
  * Implements hook_theme().
  */
 function field_embed_views_theme() {
@@ -19,21 +32,21 @@ function field_embed_views_theme() {
   );
 }
 
+
 /**
  * Implements hook_field_info().
  */
 function field_embed_views_field_info() {
-  return array(
-    'field_embed_views' => array(
-      'label' => t('Views'),
-      'description' => t('Displays a selected view in a node.'),
-      'instance_settings' => array(
-        'view_name' => '',
-        'display_name' => '',
-      ),
-      'default_widget' => 'field_embed_views',
-      'default_formatter' => 'field_embed_views_default',
+  return array('field_embed_views' => array(
+    'label' => t('Views embed field'),
+    'description' => t('Displays a selected view in a node.'),
+    'instance_settings' => array(
+      'view_name' => '',
+      'display_name' => '',
     ),
+    'default_widget' => 'field_embed_views',
+    'default_formatter' => 'field_embed_views_default',
+  ),
   );
 }
 
@@ -42,6 +55,7 @@ function field_embed_views_field_info() {
  *
  */
 function field_embed_views_field_instance_settings_form($field, $instance) {
+
   $form['#field_name'] = $field['field_name'];
 
   $default_view_name = isset($instance['settings']['view_name']) ? $instance['settings']['view_name'] : NULL;
@@ -52,15 +66,13 @@ function field_embed_views_field_instance_settings_form($field, $instance) {
     '#empty_value' => '',
     '#default_value' => $default_view_name,
     '#required' => TRUE,
-    '#ajax' => array(
-      'event' => 'change',
+    '#ajax' => array('event' => 'change',
       'callback' => 'field_embed_views_display_option_ajax',
       'wrapper' => 'display-wrapper',
     ),
   );
 
-  $form['display_name'] = array(
-    '#type' => 'select',
+  $form['display_name'] = array('#type' => 'select',
     '#title' => 'Display',
     '#options' => array(),
     '#empty_value' => '',
@@ -70,6 +82,14 @@ function field_embed_views_field_instance_settings_form($field, $instance) {
     '#suffix' => '</div>',
 
   );
+
+
+  // TODO make backend hardcoded values
+
+  if (isset($instance['settings']['display_name'])) {
+
+  }
+
 
   return $form;
 }
@@ -81,13 +101,14 @@ function field_embed_views_display_option_ajax($form, $form_state) {
   $field = & $form['instance']['settings']['display_name'];
   $commands = array();
   $commands[] = ajax_command_replace('#display-wrapper', drupal_render($field));
+
   return array('#type' => 'ajax', '#commands' => $commands);
 }
 
 /**
  * Implements hook_form_FORM_ID_alter().
  */
-function field_embed_views_form_alter(&$form, &$form_state, $form_id) {
+function field_embed_views_form_alter(& $form, & $form_state, $form_id) {
 
   if ($form_id == 'field_ui_field_edit_form') {
     $view_name = isset($form_state['input']['instance']['settings']['view_name']) ? $form_state['input']['instance']['settings']['view_name'] : $form['instance']['settings']['view_name']['#default_value'];
@@ -98,19 +119,59 @@ function field_embed_views_form_alter(&$form, &$form_state, $form_id) {
 /**
  * Implements hook_field_presave().
  */
-function field_embed_views_field_presave($entity_type, $entity, $field, $instance, $langcode, &$items) {
+function field_embed_views_field_presave($entity_type, $entity, $field, $instance, $langcode, & $items) {
+
   foreach ($items as $delta => $item) {
     if (isset($item['settings'])) {
-      $items[$delta]['settings'] = @serialize($item['settings']);
+
+      //TODO views filters views sorts
+
+      /*available date*/
+
+      $item['views_filters'] = $item['settings'];
+
+      $field_settings = array(
+        'view_name' => $instance['settings']['view_name'],
+        'display_id' => $instance['settings']['display_name'],
+        'views_items_limit' => $item['settings']['views_items_limit'],
+
+        'views_sorts' => $item['settings']['views_sorts'],
+      );
+
+      //TODO hotfix
+      if (isset($item['settings']['filters_fieldset'])) {
+
+        // set table filter data
+
+        foreach ($item['settings']['filters_fieldset']['filters_fieldset_table'] as $filter_name => $filter_value) {
+          $field_settings['views_filters']['visibility'][$filter_name] = $filter_value['public'];
+          $field_settings['views_filters']['values'][$filter_name] = $filter_value['value'];
+        }
+      } else {
+        $field_settings['views_filters'] = $item['settings']['views_filters'];
+      }
+      /**
+       * function only for progect
+       *
+       * setting pager type in dependence to checkbox
+       */
+      if ($field_settings['views_items_limit']['views_items_limit_enable']) {
+        $field_settings['views_items_limit']['pager_type'] = 'some';
+      } else {
+        $field_settings['views_items_limit']['pager_type'] = 'none';
+      }
+
+      $items[$delta]['settings'] = @serialize($field_settings);
     }
   }
+
 }
 
 /**
  * Implements hook_field_load().
  */
-function field_embed_views_field_load($entity_type, $entities, $field, $instances, $langcode, &$items) {
-//TODO
+function field_embed_views_field_load($entity_type, $entities, $field, $instances, $langcode, & $items) {
+  //TODO
   foreach ($items as $key => $data) {
     foreach ($data as $delta => $item) {
       if (isset($items[$key][$delta]['settings'])) {
@@ -128,85 +189,14 @@ function field_embed_views_field_is_empty($item, $field) {
   return FALSE; //empty($item['settings'])
 }
 
-/**
- * Implements hook_field_formatter_info().
- */
-function field_embed_views_field_formatter_info() {
-  return array(
-    'field_embed_views_default' => array(
-      'label' => t('Default'),
-      'field types' => array('field_embed_views')
-    ),
-  );
-}
-
-/**
- * Formats a field_embed_views.
- */
-function theme_field_embed_views_formatter_default($variables) {
-
-  $element = $variables['element'];
-  $exposed_filters = $element['#settings'];
-  $view = $element['#view'];
-  $view->set_exposed_input($exposed_filters);
-
-//TODO: move settings for disable in formatter settings form
-  if (isset($view->display_handler->display->handler->options['filters']) && !empty($view->display_handler->display->handler->options['filters'])) {
-    foreach ($view->display_handler->display->handler->options['filters'] as &$filter) {
-//      $filter['exposed'] = true;
-    }
-  }
-
-//disable all exposed filters
-  $view->display_handler->set_option('exposed_block', TRUE);
-
-  return $view->preview();
-}
-
-/**
- * Implements hook_field_formatter_view().
- */
-function field_embed_views_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
-
-  $instance_settings = $instance['settings'];
-
-  list($entity_id) = entity_extract_ids($entity_type, $entity);
-  $elements = array();
-  switch ($display['type']) {
-    case 'field_embed_views_default':
-      foreach ($items as $delta => $item) {
-
-        $view = views_get_view($instance_settings['view_name']);
-        $elements[$delta] = array(
-          '#type' => 'field_embed_views',
-          '#theme' => 'field_embed_views_formatter_default',
-          '#access' => $view && $view->access($instance_settings['display_name']),
-          '#view' => $view,
-          '#view_name' => $instance_settings['view_name'],
-          '#view_display' => $instance_settings['display_name'],
-          '#settings' => $item['settings'],
-          '#entity_type' => $entity_type,
-          '#entity_id' => $entity_id,
-          '#entity' => $entity,
-          '#element'
-        );
-      }
-      break;
-  }
-  return $elements;
-}
 
 /**
  * Implements hook_element_info().
  */
 function field_embed_views_element_info() {
   $elements = array();
-  $elements['field_embed_views'] = array(
-    '#input' => TRUE,
-    '#theme' => 'field_embed_views_default',
-    '#process' => array('_field_embed_views_process'),
-    '#theme_wrappers' => array('form_element'),
-  );
+  $elements['field_embed_views'] = array('#input' => TRUE, '#theme' => 'field_embed_views_default', '#process' => array('_field_embed_views_process'), '#theme_wrappers' => array('form_element'),);
+
   return $elements;
 }
 
@@ -219,6 +209,7 @@ function field_embed_views_element_info() {
  */
 function _field_embed_views_process($element, $form_state, $complete_form) {
 
+
   $default_values = isset($element['#value']['settings']) ? $element['#value']['settings'] : NULL;
   $instance = field_widget_instance($element, $form_state);
   $view_name = $instance['settings']['view_name'];
@@ -230,8 +221,8 @@ function _field_embed_views_process($element, $form_state, $complete_form) {
       $view->init_handlers();
 
       $filter_form_state = array(
-        'view' => &$view,
-        'display' => &$view->display[$display_name],
+        'view' => & $view,
+        'display' => & $view->display[$display_name],
         'method' => 'post',
         'rerender' => FALSE,
         'no_redirect' => FALSE,
@@ -244,20 +235,371 @@ function _field_embed_views_process($element, $form_state, $complete_form) {
       //Clear $filter_form
       _field_embed_views_clear_exposed_form_elements($filter_form);
 
-      $element['settings'] = array(
+
+      //setting sort
+
+      $element['settings']['views_sorts'] = array(
         '#type' => 'fieldset',
-        '#title' => t('Exposed Filters'),
-        '#collapsible' => FALSE,
+      );
+
+      if (isset($filter_form['sort_by']) && isset($filter_form['sort_order'])) {
+
+
+        if (isset($default_values['views_sorts']['sort_by']) && isset($default_values['views_sorts']['sort_order'])) {
+          $filter_form['sort_by']['#default_value'] = $default_values['views_sorts']['sort_by'];
+          $filter_form['sort_by']['#value'] = $default_values['views_sorts']['sort_by'];
+          $filter_form['sort_order']['#default_value'] = $default_values['views_sorts']['sort_order'];
+          $filter_form['sort_order']['#value'] = $default_values['views_sorts']['sort_order'];
+        }
+        $element['settings']['views_sorts']['sort_by'] = $filter_form['sort_by'];
+
+        $element['settings']['views_sorts']['sort_order'] = $filter_form['sort_order'];
+
+        $element['settings']['views_sorts']['sort_by']['#prefix'] = '<span style="float:left;margin:0px 10px;">';
+        $element['settings']['views_sorts']['sort_by']['#suffix'] = '</span>';
+
+        $element['settings']['views_sorts']['sort_order']['#prefix'] = '<span style="float:left;margin:0px 10px;">';
+        $element['settings']['views_sorts']['sort_order']['#suffix'] = '</span>';
+      }
+
+      $element['settings']['filters_fieldset'] = array(
+        '#type' => 'fieldset',
+      );
+
+
+      $element['settings']['filters_fieldset']['filters_fieldset_table'] = array(
+
+        '#title' => t('Filters list'),
+        '#tree' => TRUE,
+        '#theme' => 'table',
+        '#element_validate' => array('field_embed_views_checkbox_checked_limit_validate'),
+        '#header' => array('', t('Filter name'), t('Value'), '', t('Publications')),
+        '#rows' => array(),
+      );
+
+      $i = 0;
+
+      $filters = $view->display[$display_name]->display_options['filters'];
+
+      $unusable_filters_list = array();
+
+      foreach ($filters as $filter_name => $filter_value) {
+
+        // if (isset($form_state['filters']['enabled'][$filter_name])) {
+
+        if (!isset($filter_value['exposed'])) {
+          continue;
+        }
+
+        $unusable_filters_list[$filter_name] = $filter_value['expose']['label'];
+        $special_info = array('#markup' => t('Rule :position', array(':position' => $i)),);
+
+        $name = array('#markup' => $filter_value['expose']['label'],);
+
+        if ($filter_name == 'field_mpx_available_date_value') {
+          $value = array(
+            '#type' => 'textfield',
+            '#default_value' => $filter_value['value'],
+          );
+        }
+
+
+        $options = array();
+        switch ($filter_name) {
+          case 'field_mpx_available_date_value':
+
+
+            $date_element = array();
+            $today_value = format_date(REQUEST_TIME, 'custom', 'd.m.Y');
+
+            $date_element['field_mpx_available_date_value']['last_n_days'] = array(
+              '#type' => 'fieldset',
+
+            );
+            $date_element['field_mpx_available_date_value']['from_day_to_day'] = array(
+              '#type' => 'fieldset',
+
+            );
+            $date_element['field_mpx_available_date_value']['date_type'] = array(
+              '#type' => 'radios',
+              '#options' => array(
+                'last_n_days' => t('Last n days'),
+                'from_day_to_day' => t('From day to day'),
+              ),
+              '#default_value' => 'from_day_to_day',
+            );
+            $date_element['field_mpx_available_date_value']['last_n_days']['min'] = array(
+              '#type' => 'textfield',
+            );
+            $date_element['field_mpx_available_date_value']['last_n_days']['max'] = array(
+              '#type' => 'value',
+            );
+            //$date_element['field_mpx_available_date_value']['last_n_days']['min'] = $date_element['field_mpx_available_date_value']['min'];
+            //$date_element['field_mpx_available_date_value']['last_n_days']['max'] = $date_element['field_mpx_available_date_value']['max'];
+            $date_element['field_mpx_available_date_value']['last_n_days']['min']['#prefix'] = '<span style="float:left">' . t('Last') . '</span> <span style="display: inline;">';
+            $date_element['field_mpx_available_date_value']['last_n_days']['min']['#size'] = 4;
+
+            //hardcoded value
+            $date_element['field_mpx_available_date_value']['last_n_days']['min']['#default_value'] = '25';
+
+
+            $date_element['field_mpx_available_date_value']['last_n_days']['min']['#suffix'] = '</span> <span style="float:left">' . t('days') . '</span>';
+            $date_element['field_mpx_available_date_value']['last_n_days']['max']['#type'] = 'value';
+
+            $date_element['field_mpx_available_date_value']['from_day_to_day']['min'] = array(
+              '#type' => 'textfield',
+            );
+            $date_element['field_mpx_available_date_value']['from_day_to_day']['max'] = array(
+              '#type' => 'textfield',
+            );
+
+//TODO delete min and max from array
+            //unset($form['field_mpx_available_date_value']['min']);
+            //unset($form['field_mpx_available_date_value']['max']);
+
+
+            if (module_exists('date_popup')) {
+
+              $date_element['field_mpx_available_date_value']['from_day_to_day']['min']['#type'] = 'date_popup';
+              $date_element['field_mpx_available_date_value']['from_day_to_day']['min']['#date_format'] = 'd.m.Y';
+              $date_element['field_mpx_available_date_value']['from_day_to_day']['min']['#date_year_range'] = '-1:0';
+              $date_element['field_mpx_available_date_value']['from_day_to_day']['min']['#date_label_position'] = 'none';
+              $date_element['field_mpx_available_date_value']['from_day_to_day']['min']['#default_value'] = $today_value;
+
+
+              $date_element['field_mpx_available_date_value']['from_day_to_day']['max']['#type'] = 'date_popup';
+              $date_element['field_mpx_available_date_value']['from_day_to_day']['max']['#date_format'] = 'd.m.Y';
+              $date_element['field_mpx_available_date_value']['from_day_to_day']['max']['#date_year_range'] = '-1:0';
+              $date_element['field_mpx_available_date_value']['from_day_to_day']['max']['#date_label_position'] = 'none';
+              $date_element['field_mpx_available_date_value']['from_day_to_day']['max']['#default_value'] = $today_value;
+
+            }
+
+            $date_element['field_mpx_available_date_value_1']['#options'][''] = 'Date Range';
+            $date_element['#attached']['js'][] = array(
+              'type' => 'setting',
+              'data' => array(
+                'states' => array('#edit-field-dynamic-carousel-views-und-0-settings-field-mpx-available-date-value-wrapper' => array(
+                  'enabled' => array(
+                    '#edit-field-dynamic-carousel-views-und-0-settings-field-mpx-available-date-value-1' => array('value' => ''),
+                  )
+                ))),
+            );
+            $value = $date_element;
+
+            $form_state['views_filters']['usable_filters'][$filter_name] = $date_element['field_mpx_available_date_value'];
+
+            break;
+
+          default:
+            if (isset($filter_form[$filter_name])) {
+
+
+              $value = $filter_form[$filter_name];
+              if ($value['#type'] == 'select') {
+
+                if (isset($default_values['views_filters']['values'][$filter_name])) {
+
+                  $value['#default_value'] = $default_values['views_filters']['values'][$filter_name];
+                  $value['#value'] = $default_values['views_filters']['values'][$filter_name];
+                } elseif (!empty($value['#default_value'])) {
+                  $value['#default_value'] = '';
+                }
+
+              } else {
+                if (isset($default_values['views_filters']['values'][$filter_name])) {
+                  $value['#default_value'] = $default_values['views_filters']['values'][$filter_name];
+                  $value['#value'] = $default_values['views_filters']['values'][$filter_name];
+                } elseif (!empty($value['#default_value'])) {
+                  $value['#default_value'] = '';
+                }
+
+              }
+
+            } else {
+
+              $value = array(
+                '#type' => 'textfield',
+                '#default_value' => (isset($items[$delta]['settings']['views_filters']['values'][$filter_name])) ? $items[$delta]['settings']['views_filters']['values'][$filter_name] : $filter_value['value'],
+              );
+            }
+
+            $form_state['views_filters']['usable_filters'][$filter_name] = $value['#default_value'];
+
+
+        }
+
+        unset($options);
+        $remove = array(
+          '#type' => 'submit',
+          '#value' => t('Remove'),
+          '#submit' => array('field_embed_views_ajax_remove_new_filter'),
+          '#filter_name' => $filter_name,
+          '#ajax' => array(
+            'callback' => 'field_embed_views_ajax_filters_callback',
+            'wrapper' => 'filters-list-wrapper',
+            'filter_name' => $filter_name,
+          ),
+        );
+
+        $public = array(
+          '#type' => 'checkbox',
+          '#title' => t('Public'),
+          '#default_value' => (isset($default_values['views_filters']['visibility'][$filter_name])) ? $default_values['views_filters']['visibility'][$filter_name] : 0,
+        );
+
+        $element['settings']['filters_fieldset']['filters_fieldset_table'][$filter_name] = array(
+          'special_info' => & $special_info,
+          'name' => & $name,
+          'value' => & $value,
+          'remove' => & $remove,
+          'public' => & $public,
+        );
+
+        $element['settings']['filters_fieldset']['filters_fieldset_table']['#rows'][$filter_name] = array(
+          array(
+            'data' => & $special_info
+          ), array(
+            'data' => & $name
+          ), array(
+            'data' => & $value
+          ), array(
+            'data' => & $remove
+          ), array('data' => & $public),);
+
+        // Because we've used references we need to `unset()` our
+        // variables. If we don't then every iteration of the loop will
+        // just overwrite the variables we created the first time
+        // through leaving us with a form with 3 copies of the same fields.
+
+        unset($special_info);
+        unset($name);
+        unset($public);
+        unset($remove);
+        unset($value);
+
+        $i++;
+
+      }
+
+      $view->exposed_input['exposed_input'] = array(
+        '#markup' => (empty($view->exposed_input)) ? 0 : $view->exposed_input,
+      );
+
+      /*
+            //if ((!isset($form_state['filters']['enabled'])) || (count($form_state['filters']['disabled']) > 0)) {
+            $element['settings']['filters_fieldset']['add_filter'] = array(
+              '#type' => 'fieldset',
+              '#title' => t('Add new filter'),
+              '#description' => t('If you want to use filter in view - please select it (Will working only in ajax version)'),
+            );
+
+            $element['settings']['filters_fieldset']['add_filter']['new_filter_name'] = array(
+              '#type' => 'select',
+              //'#options'=> $form_state['filters']['disabled'],
+              '#options' => $unusable_filters_list,
+            );
+            $element['settings']['filters_fieldset']['add_filter']['add_name'] = array('#type' => 'button',
+              '#value' => t('Add one more'),
+              '#submit' => array('field_embed_views_ajax_add_new_filter'), // See the examples in ajax_example.module for more details on the
+              // properties of #ajax.
+              '#ajax' => array(
+                'callback' => 'field_embed_views_ajax_filters_callback',
+                'wrapper' => 'filters-list-wrapper',
+              ),
+            );
+      */
+
+
+      $view->execute();
+      $view->display[$display_name]->display_options['pager']['type'] = 'none';
+      $view->pager['type'] = 'none';
+      $view->set_items_per_page(0);
+      $element['settings']['total_count_wrapper']=array(
+        '#type' => 'fieldset',
+        '#title' => t('Total count'),
+        '#weight' => 30,
         '#tree' => TRUE,
       );
 
-      foreach ($filter_form as $element_id => $element_) {
-        $element['settings'][$element_id] = $element_;
-        //Set default value
-        if (isset($default_values[$element_id])) {
-          $element['settings'][$element_id]['#value'] = $default_values[$element_id];
+      $element['settings']['total_count_wrapper']=array(
+        '#type'=>'markup',
+        '#markup' => t('<hr>Total count -> :count</hr>',array(':count'=>count($view->result))),
+      );
+
+      $element['settings']['views_items_limit'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Views Item Limit'),
+        '#weight' => 30,
+        '#tree' => TRUE,
+      );
+
+      //TODO recheck probleb width #value
+      $element['settings']['views_items_limit']['views_items_limit_enable'] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Enable pagination override'),
+        '#value' => (isset($default_values['views_items_limit']['views_items_limit_enable'])) ? $default_values['views_items_limit']['views_items_limit_enable'] : 0,
+        '#description' => t('If not enabled all elements will be shown, else only specific number items will be shown'),
+        '#default_value' => (isset($default_values['views_items_limit']['views_items_limit_enable'])) ? $default_values['views_items_limit']['views_items_limit_enable'] : 0,
+      );
+
+      $element['settings']['views_items_limit']['views_items_limit_value'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Page items'),
+        '#states' => array(
+          'visible' => array(
+            ':input[name="' . $element['#field_name'] . '[und]['.$element['#delta'].'][settings][views_items_limit][views_items_limit_enable]"]' => array(
+              'checked' => TRUE
+            ),
+          ),
+        ),
+      );
+
+      /**
+       * setting default parameters to pager type and items per page
+       */
+      if (isset($default_values['views_items_limit']['views_items_limit_enable']) && ($default_values['views_items_limit']['views_items_limit_enable'])) {
+        /*
+        * set views pager type
+        */
+        if (isset($default_values['views_items_limit']['views_items_limit_enable'])) {
+          if (isset($default_values['views_items_limit']['pager_type'])) {
+            $element['settings']['views_items_limit']['pager_type']['#default_value'] = $default_values['views_items_limit']['pager_type'];
+          } elseif (isset($view->display[$display_name]->display_options['pager']['type'])) {
+            $element['settings']['views_items_limit']['pager_type']['#default_value'] = $view->display[$display_name]->display_options['pager']['type'];
+
+          } else {
+            $element['settings']['views_items_limit']['pager_type']['#default_value'] = FIELD_EMBEDED_VIEWS_DEFAULT_PAGE_TYPE;
+          }
+
+        } elseif (isset($view->display[$display_name]->display_options['pager']['type'])) {
+          $element['settings']['views_items_limit']['pager_type']['#default_value'] = $view->display[$display_name]->display_options['pager']['type'];
+
+        } else {
+          $element['settings']['views_items_limit']['pager_type']['#default_value'] = FIELD_EMBEDED_VIEWS_DEFAULT_PAGE_TYPE;
+        }
+
+        /*
+        * set views items limit value
+        */
+        if (isset($default_values['views_items_limit']['views_items_limit_value'])) {
+          $element['settings']['views_items_limit']['views_items_limit_value']['#default_value'] = $default_values['views_items_limit']['views_items_limit_value'];
+        } else {
+          $element['settings']['views_items_limit']['views_items_limit_value']['#default_value'] = FIELD_EMBEDED_VIEWS_DEFAULT_MAX_ASSET_ITEM;
+        }
+      } else {
+
+        $element['settings']['views_items_limit']['pager_type']['#default_value'] = $view->display[$display_name]->display_options['pager']['type'];
+
+        if (isset($view->display[$display_name]->display_options['pager']['options']['items_per_page'])) {
+
+          $element['settings']['views_items_limit']['views_items_limit_value']['#default_value'] = $view->display[$display_name]->display_options['pager']['options']['items_per_page'];
+        } else {
+
+          $element['settings']['views_items_limit']['views_items_limit_value']['#default_value'] = FIELD_EMBEDED_VIEWS_DEFAULT_MAX_ASSET_ITEM;
         }
       }
+
       return $element;
     }
   }
@@ -269,32 +611,10 @@ function _field_embed_views_process($element, $form_state, $complete_form) {
  */
 function theme_field_embed_views_default($variables) {
   $element = $variables['element'];
+
   return drupal_render($element['settings']);
 }
 
-/**
- * Implements hook_field_widget_info().
- */
-function field_embed_views_field_widget_info() {
-  return array(
-    'field_embed_views' => array(
-      'label' => 'Views Exposed Filters',
-      'field types' => array('field_embed_views'),
-    ),
-  );
-}
-
-/**
- * Implements hook_field_widget_form().
- */
-function field_embed_views_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
-
-  $element += array(
-    '#type' => $instance['widget']['type'],
-    '#default_value' => isset($items[$delta]) ? $items[$delta] : '',
-  );
-  return $element;
-}
 
 /**
  * Returns a select options list of views displays of enabled and allowed views.
@@ -308,6 +628,7 @@ function _field_embed_views_get_views($field, $instance) {
       $options[$view->name] = $view->human_name;
     }
   }
+
   return $options;
 }
 
@@ -328,42 +649,16 @@ function _field_embed_views_get_views_displays($view_name) {
       $options[$display->id] = $display->display_title;
     }
   }
+
   return $options;
 }
 
 /**
  * Returns clear $form without view attributes
  */
-function _field_embed_views_clear_exposed_form_elements(&$form) {
-//TODO: Will be refactored
-  $exposed_form_elements = array(
-    '#theme_wrappers',
-    '#tree',
-    '#parents',
-    '#validate',
-    '#submit',
-    '#after_build',
-    '#processed',
-    '#defaults_loaded',
-    '#required',
-    '#attributes',
-    '#title_display',
-    '#array_parents',
-    '#sorted',
-    '#after_build_done',
-    '#validated',
-    '#id',
-    '#form_id',
-    '#type',
-    '#method',
-    '#build_id',
-    '#token',
-    'form_token',
-    'form_id',
-    'form_build_id',
-    'submit',
-    'reset',
-  );
+function _field_embed_views_clear_exposed_form_elements(& $form) {
+  //TODO: Will be refactored
+  $exposed_form_elements = array('#theme_wrappers', '#tree', '#parents', '#validate', '#submit', '#after_build', '#processed', '#defaults_loaded', '#required', '#attributes', '#title_display', '#array_parents', '#sorted', '#after_build_done', '#validated', '#id', '#form_id', '#type', '#method', '#build_id', '#token', 'form_token', 'form_id', 'form_build_id', 'submit', 'reset',);
 
   foreach ($exposed_form_elements as $element) {
     if (isset($form[$element])) {
@@ -371,20 +666,7 @@ function _field_embed_views_clear_exposed_form_elements(&$form) {
     }
   }
 
-  $exposed_form_element_attr = array(
-    '#process',
-    '#processed',
-    '#pre_render',
-    '#defaults_loaded',
-    '#ajax_processed',
-    '#sorted',
-    '#theme',
-    '#theme_wrappers',
-    '#tree',
-    '#parents',
-    '#name',
-    '#id',
-  );
+  $exposed_form_element_attr = array('#process', '#processed', '#pre_render', '#defaults_loaded', '#ajax_processed', '#sorted', '#theme', '#theme_wrappers', '#tree', '#parents', '#name', '#id',);
 
   foreach ($form as $element_id => $element) {
     if (is_array($element) && !empty($element)) {
@@ -395,4 +677,98 @@ function _field_embed_views_clear_exposed_form_elements(&$form) {
       }
     }
   }
+}
+
+
+/**
+ * Showing exposed elements of view.
+ *
+ * You need to send list of filters, wich you want to show, all others filters will be hide
+ * if filter not usable and not visible - it will be delete from current view presentation.
+ * The filter will remain in view. but will not be used when the view is shown in this item
+ *
+ * @param $view
+ * @param $display_id
+ * @param $filters
+ * @param array $usable_exposed_filters
+ * @param array $visible_exposed_filters
+ */
+function field_embed_views_showing_exposed_elements(& $view, $display_id, $filters, $usable_exposed_filters = array(), $visible_exposed_filters = array()) {
+
+  foreach ($filters as $filter_name => $filter) {
+
+    if (in_array($filter_name, $visible_exposed_filters)) {
+
+      /*
+      if (!in_array($filter_name, $usable_exposed_filters)) {
+
+      //deleting filter from usage
+      unset($view->display[$display_id]->display_options['filters'][$filter_name]);
+      }
+      */
+    } else {
+      /**
+       * if field is usable
+       */
+
+      if (in_array($filter_name, $usable_exposed_filters)) {
+        $view->display[$display_id]->display_options['filters'][$filter_name]['exposed'] = FALSE;
+
+      } else {
+
+        unset($view->display[$display_id]->display_options['filters'][$filter_name]);
+
+      }
+
+
+    }
+  }
+}
+
+
+/**
+ * Callback for both ajax-enabled buttons.
+ *
+ * Selects and returns the fieldset with the names in it.
+ *
+ * Function returns rebuild dynamic part of form
+ */
+function field_embed_views_ajax_filters_callback($form, $form_state) {
+  return $form['instance']['filters_fieldset'];
+}
+
+/**
+ * Submit handler for the "add-one-more" button.
+ *
+ * Increments the max counter and causes a rebuild.
+ */
+function field_embed_views_ajax_add_new_filter($form, & $form_state) {
+
+  if ((isset($form_state['values']['instance']['settings']['filters_fieldset']['add_filter']['new_filter_name']))) {
+    $filter_name = $form_state['values']['instance']['settings']['filters_fieldset']['add_filter']['new_filter_name'];
+    $form_state['filters']['enabled'][$filter_name] = $form_state['filters']['disabled'][$filter_name];
+    unset($form_state['filters']['disabled'][$filter_name]);
+  }
+
+
+  $form_state['rebuild'] = TRUE;
+
+}
+
+/**
+ * Submit handler for the "remove one" button.
+ *
+ * Decrements the max counter and causes a form rebuild.
+ */
+function field_embed_views_ajax_remove_new_filter($form, & $form_state) {
+  if (isset($form_state['clicked_button']['#filter_name']) && ($form_state['clicked_button']['#value'] == t('Remove'))) {
+    //if(isset($form_state['clicked_button']['#filter_name'])){
+
+    $filter_name = $form_state['clicked_button']['#filter_name'];
+
+    $form_state['filters']['disabled'][$filter_name] = $form_state['filters']['enabled'][$filter_name];
+    unset($form_state['filters']['enabled'][$filter_name]);
+
+  }
+  $form_state['rebuild'] = TRUE;
 }
