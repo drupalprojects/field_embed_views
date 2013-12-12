@@ -1,7 +1,8 @@
 
 Field Embed Views
 -----------------
-Provides a field type, to which any views can be attached with custom views settings.
+Provides a field type, to which any views can be attached with
+custom views settings.
 
 Each field item is internally represented as an set of view settings.
 Field allow to save View settings (exposed filters) in Drupal entity and
@@ -20,7 +21,7 @@ The placement of the View in the content can be reordered on the
 
   * Add a field embed views to any entity, e.g. to a node. For that use the
    the usual "Manage fields" interface provided by the "field ui" module of
-   Drupal, e.g. "Admin -> Structure-> Content types -> Article -> Manage fields".
+   Drupal, "Admin -> Structure-> Content types -> Article -> Manage fields".
    In field instance settings select View and Display.
 
 Restrictions

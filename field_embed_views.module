@@ -183,7 +183,6 @@ function field_embed_views_field_formatter_view($entity_type, $entity, $field, $
           '#entity_type' => $entity_type,
           '#entity_id' => $entity_id,
           '#entity' => $entity,
-          '#element',
         );
       }
       break;

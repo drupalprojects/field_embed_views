@@ -15,7 +15,7 @@ function field_embed_views_field_schema($field) {
         'type' => 'blob',
         'not null' => FALSE,
         'size' => 'normal',
-      )
+      ),
     ),
   );
 }
