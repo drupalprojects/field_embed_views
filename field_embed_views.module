@@ -316,7 +316,11 @@ function _field_embed_views_get_views($field, $instance) {
   $options = array();
   if (is_array($views) && !empty($views)) {
     foreach ($views as $view) {
-      $options[$view->name] = $view->human_name;
+      $view_name = empty($view->human_name) ? $view->name : t('@human-name (@machine-name)', array(
+        '@machine-name' => $view->name,
+        '@human-name' => $view->human_name,
+      ));
+      $options[$view->name] = $view_name;
     }
   }
   return $options;
@@ -336,7 +340,11 @@ function _field_embed_views_get_views_displays($view_name) {
   $options = array();
   if (!empty($view->display) && is_array($view->display)) {
     foreach ($view->display as $display) {
-      $options[$display->id] = $display->display_title;
+      $display_name = empty($display->display_title) ? $display->id : t('@human-name (@machine-name)', array(
+        '@machine-name' => $display->id,
+        '@human-name' => $display->display_title,
+      ));
+      $options[$display->id] = $display_name;
     }
   }
   return $options;
