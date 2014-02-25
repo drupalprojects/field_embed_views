@@ -1,5 +1,5 @@
 name = Field Embed Views
-description = Defines a field type to display a view and save settings of exposed filters.
+description = Defines a field type to display a View and use pre-saved values of the exposed filters.
 core = 7.x
 package = Fields
 dependencies[] = views

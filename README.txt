@@ -1,30 +1,30 @@
-
 Field Embed Views
------------------
-Provides a field type, to which any views can be attached with
-custom views settings.
+=================
 
-Each field item is internally represented as an set of view settings.
-Field allow to save View settings (exposed filters) in Drupal entity and
-output that View with saved settings as entity field.
-The placement of the View in the content can be reordered on the
-"Field Display" administration page for that entity.
+The module provides a field type to attach any Views View display with, 
+configurable on per-entity level, default values for exposed filters and sorting.
+The placement of the View in the content can be reordered on the 'Field Display' 
+administration page for the entity.
 
- Usage
- ------
+Usage
+=================
 
-  * Go to "Admin -> Modules" and enable module Field Embed Views.
+1. Go to 'Admin -> Modules' and enable Field Embed Views module.
 
-  * Then go to "Admin -> Structure-> Views -> Add new view" to define new view
-   or use already create view. Configure exposed filters that will be embed in
-   entity form.
+2. Then go to 'Admin -> Structure-> Views -> Add new view' and define a new View
+   or use already create one. 
+   
+3. Configure any exposed filters.
 
-  * Add a field embed views to any entity, e.g. to a node. For that use the
-   the usual "Manage fields" interface provided by the "field ui" module of
-   Drupal, "Admin -> Structure-> Content types -> Article -> Manage fields".
-   In field instance settings select View and Display.
+4. Add the corresponding field to any entity, e.g. to a node. 
+   Use the 'Manage fields' interface provided by the 'Field UI' module of Drupal, 
+   'Admin -> Structure-> Content types -> Article -> Manage fields'.
+   In the field instance settings select a View and a display.
 
-Restrictions
--------------
+Known issues
+=================
 
-  * As of now, the field embed views save only exposed filter settings of views.
+1. As for now, the Field Embed Views modules saves only exposed filter settings.
+
+If you find a problem, incorrect comment, obsolete or improper code or such,
+please let us know by creating a new issue.
