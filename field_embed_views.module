@@ -246,7 +246,8 @@ function _field_embed_views_process($element, $form_state, $complete_form) {
       foreach ($filter_form as $element_id => $filter_element) {
         $element['settings'][$element_id] = $filter_element;
         // Set default values to view configuration form from field value.
-        // This is needed because default values aren't set properly for some elements in views exposed form
+        // This is needed because default values aren't set properly 
+        // for some elements in views exposed form.
         if (!empty($element['#default_value']['settings']) && isset($element['#default_value']['settings'][$element_id])) {
           $element['settings'][$element_id]['#default_value'] = $element['#default_value']['settings'][$element_id];
         }
