@@ -110,7 +110,7 @@ function field_embed_views_field_load($entity_type, $entities, $field, $instance
   foreach ($items as $key => $data) {
     foreach ($data as $delta => $item) {
       if (isset($items[$key][$delta]['settings'])) {
-        $items[$key][$delta]['settings'] = @unserialize($items[$key][$delta]['settings']);
+        $items[$key][$delta]['settings'] = unserialize($items[$key][$delta]['settings']);
       }
     }
   }
